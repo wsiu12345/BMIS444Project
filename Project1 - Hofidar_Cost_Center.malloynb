@@ -1,0 +1,112 @@
+>>>malloy
+source: HofidarCost is duckdb.table('./Hofidar_Cost_Center_Report_20250318.csv') extend {
+    measure:
+        rev_sum is `Total Revenue`.sum()
+        exp_sum is `Total Expenses`.sum()
+        plant_area_sum is `Plant Sq Feet`.sum()
+
+        rev_avg is round(`Total Revenue`.avg())
+        inpatient_rev_percent_avg is `Inpatient Rev %`.avg()
+        
+        plant_area_avg is `Plant Sq Feet`.avg()
+        rent_avg is `Rentals Leases`.avg()
+        laundry_dry_avg is `Laundry Dry Lbs`.avg()
+        exp_avg is `Total Expenses`.avg()
+        profit_avg is round(Profit.avg())
+
+        human_capital_avg is `Total Human Capital Expenses`.avg()
+        wage_avg is `Salaries Wages`.avg()
+        benefit_avg is `Employee Benefits`.avg()
+        pro_fee_avg is `Professional Fees`.avg()
+
+        oper_exp_avg is `Operating Expenses`.avg()
+        utilities_avg is `Utilities`.avg()
+        depr_avg is `Depreciation Expense`.avg()
+        allocated_exp_avg is `Allocated Expenses`.avg()
+        other_exp_avg is `Other Direct Exp`.avg()
+        non_cat_exp_avg is `Other Noncategorized Expenses`.avg()
+        pur_other_avg is `Purch Serv Other`.avg()
+        pur_util_avg is `Purch Serv Utilities`.avg()
+
+        id_fte_avg is `ID FTE s`.avg()
+        nurse_fte_avg is `Nursing FTE s`.avg()
+        housekeep_hrs_avg is `Housekeeping Hours`.avg()
+
+    dimension:
+        `Total Expenses` is `Allocated Expenses` + `Operating Expenses`
+        `Total Human Capital Expenses` is `Salaries Wages` + `Employee Benefits` + `Professional Fees`
+        `Inpatient Rev %` is `Inpatient Revenue` / `Total Revenue`
+        Profit is `Total Revenue` - `Total Expenses`
+
+}
+>>>malloy
+-- overall industry performance
+run: HofidarCost -> {
+    group_by: `Year`
+    aggregate: rev_avg, profit_avg
+    order_by: `Year`
+    limit: 1000
+}
+>>>malloy
+-- avg cost breakdown
+run: HofidarCost -> {
+    group_by: `Year`
+    aggregate: human_capital_avg, rent_avg, oper_exp_avg, utilities_avg, depr_avg, other_exp_avg, allocated_exp_avg, non_cat_exp_avg, pur_other_avg, pur_util_avg
+}
+>>>malloy
+-- human cap breakdown
+run: HofidarCost -> {
+    group_by: `Year`
+    aggregate: human_capital_avg, wage_avg, benefit_avg, pro_fee_avg
+    order_by: `Year`
+}
+>>>malloy
+-- relation between FTEs and housekeeping hours
+run: HofidarCost -> {
+	group_by: `Year`
+	aggregate: id_fte_avg, nurse_fte_avg, housekeep_hrs_avg
+	order_by: `Year`
+}
+>>>malloy
+run: HofidarCost -> {
+	group_by: `Year`
+	aggregate: inpatient_rev_percent_avg
+	where: `Inpatient Revenue` > 0 and `Total Revenue` > 0
+	order_by: `Year`
+	limit: 100000
+}
+>>>malloy
+-- Hospitals and cost centers with most rev_avg
+run: HofidarCost -> {
+    group_by: `Hospital Name`, `License Number`
+    aggregate: rev_avg
+    nest: CostCenter is{
+        group_by: `Cost Center`
+        aggregate: rev_avg
+        limit: 5
+    }
+    limit: 5
+    order_by: rev_avg DESC
+}
+>>>malloy
+-- Hospitals and cost centers with most profit_avg
+run: HofidarCost -> {
+    group_by: `Hospital Name`, `License Number`
+    aggregate: profit_avg
+    nest: CostCenter is{
+        group_by: `Cost Center`
+        aggregate: profit_avg
+        limit: 5
+    }
+    limit: 5
+    order_by: profit_avg DESC
+}
+>>>malloy
+-- Hospitals and cost centers with most plant_area_sum
+run: HofidarCost -> {
+    group_by: `Hospital Name`, `License Number`, 
+    aggregate: plant_area_sum
+    where: `Year` = 2023
+    limit: 100000
+    order_by: plant_area_sum DESC
+}
